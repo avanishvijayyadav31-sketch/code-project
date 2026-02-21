@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RemoteDesk - Direct Connect</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            margin: 20px;
+            padding: 0;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 40px;
+        }
+        .remote-id-display {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .remote-id {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #495057;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+        }
+        .connection-form {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        .form-control {
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+            padding: 15px;
+            font-size: 1.1rem;
+        }
+        .btn-connect {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-connect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            color: white;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        .status-connecting { background-color: #ffc107; animation: pulse 1s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+        .video-container video {
+            width: 100%;
+            height: auto;
+            border-radius: 15px;
+        }
+        .remote-cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 0, 0, 0.7);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+        .control-panel {
+            background: #495057;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        .btn-control {
+            margin: 5px;
+            border-radius: 8px;
+        }
+        .file-transfer {
+            border: 2px dashed #667eea;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+        }
+        .file-transfer.dragover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #4facfe;
+        }
+        @media (max-width: 768px) {
+            .remote-id { font-size: 2rem; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row justify-content-center align-items-center min-vh-100">
+            <div class="col-12 col-md-8 col-lg-6">
+                <div class="main-container">
+                    <div class="header">
+                        <h1><i class="bi bi-display"></i> RemoteDesk</h1>
+                        <p>Connect to any device instantly</p>
+                    </div>
+                    
+                    <div class="content">
+                        <!-- Your Remote ID Display -->
+                        <div class="remote-id-display">
+                            <h5>Your Remote ID</h5>
+                            <div class="remote-id" id="myRemoteId">GENERATING...</div>
+                            <small class="text-muted">Share this ID to allow others to connect</small>
+                        </div>
+                        
+                        <!-- Connection Form -->
+                        <div class="connection-form">
+                            <h5 class="mb-4">Connect to Remote Device</h5>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="remoteIdInput" 
+                                       placeholder="Enter Remote ID (e.g., 123-456-789)" 
+                                       maxlength="11">
+                                <button class="btn btn-connect" type="button" id="connectBtn">
+                                    <i class="bi bi-plug"></i> Connect
+                                </button>
+                            </div>
+                            <div class="text-center">
+                                <span class="status-indicator status-offline" id="statusIndicator"></span>
+                                <span id="connectionStatus">Disconnected</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Remote Screen Display -->
+                        <div class="video-container" id="remoteScreen">
+                            <video id="remoteVideo" autoplay playsinline></video>
+                            <div class="remote-cursor" id="remoteCursor"></div>
+                        </div>
+                        
+                        <!-- Control Panel -->
+                        <div class="control-panel" id="controlPanel">
+                            <h6>Remote Control</h6>
+                            <button class="btn btn-sm btn-danger btn-control" id="disconnectBtn">
+                                <i class="bi bi-stop-circle"></i> Disconnect
+                            </button>
+                            <button class="btn btn-sm btn-warning btn-control" id="pauseBtn">
+                                <i class="bi bi-pause-circle"></i> Pause
+                            </button>
+                            <button class="btn btn-sm btn-info btn-control" id="fullscreenBtn">
+                                <i class="bi bi-fullscreen"></i> Fullscreen
+                            </button>
+                        </div>
+                        
+                        <!-- File Transfer -->
+                        <div class="file-transfer" id="fileTransfer">
+                            <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #667eea;"></i>
+                            <h5>File Transfer</h5>
+                            <p>Drag and drop files here to send to remote device</p>
+                            <input type="file" id="fileInput" multiple style="display: none;">
+                            <button class="btn btn-outline-primary" onclick="document.getElementById('fileInput').click()">
+                                <i class="bi bi-folder-plus"></i> Select Files
+                            </button>
+                        </div>
+                        
+                        <!-- Connection Info -->
+                        <div class="row text-center mt-4">
+                            <div class="col-4">
+                                <h5 id="latency">--</h5>
+                                <small class="text-muted">Latency (ms)</small>
+                            </div>
+                            <div class="col-4">
+                                <h5 id="bitrate">--</h5>
+                                <small class="text-muted">Bitrate (Mbps)</small>
+                            </div>
+                            <div class="col-4">
+                                <h5 id="quality">Good</h5>
+                                <small class="text-muted">Quality</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/signaling.js"></script>
+    <script src="js/webrtc.js"></script>
+    <script>
+        // Generate unique Remote ID
+        function generateRemoteId() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 9; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+                if (i === 2 || i === 5) result += '-';
+            }
+            return result;
+        }
+        
+        // Initialize
+        let myRemoteId = generateRemoteId();
+        document.getElementById('myRemoteId').textContent = myRemoteId;
+        
+        // Update connection status
+        function updateStatus(status, message) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('connectionStatus');
+            
+            indicator.className = 'status-indicator';
+            switch(status) {
+                case 'online':
+                    indicator.classList.add('status-online');
+                    break;
+                case 'connecting':
+                    indicator.classList.add('status-connecting');
+                    break;
+                default:
+                    indicator.classList.add('status-offline');
+            }
+            statusText.textContent = message;
+        }
+        
+        // Connect button handler
+        document.getElementById('connectBtn').addEventListener('click', async function() {
+            const remoteId = document.getElementById('remoteIdInput').value.trim();
+            if (!remoteId) {
+                alert('Please enter a Remote ID');
+                return;
+            }
+            
+            updateStatus('connecting', 'Connecting...');
+            
+            try {
+                // Initialize WebRTC connection
+                await initializeWebRTC(remoteId, myRemoteId);
+                
+                // Show remote screen and controls
+                document.getElementById('remoteScreen').style.display = 'block';
+                document.getElementById('controlPanel').style.display = 'block';
+                document.getElementById('fileTransfer').style.display = 'block';
+                
+                updateStatus('online', `Connected to ${remoteId}`);
+                
+            } catch (error) {
+                console.error('Connection failed:', error);
+                updateStatus('offline', 'Connection failed');
+                alert('Failed to connect. Please check the Remote ID and try again.');
+            }
+        });
+        
+        // Disconnect handler
+        document.getElementById('disconnectBtn').addEventListener('click', function() {
+            disconnectWebRTC();
+            document.getElementById('remoteScreen').style.display = 'none';
+            document.getElementById('controlPanel').style.display = 'none';
+            document.getElementById('fileTransfer').style.display = 'none';
+            updateStatus('offline', 'Disconnected');
+        });
+        
+        // File transfer handlers
+        const fileTransfer = document.getElementById('fileTransfer');
+        const fileInput = document.getElementById('fileInput');
+        
+        fileTransfer.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+        
+        fileTransfer.addEventListener('dragleave', function(e) {
+            this.classList.remove('dragover');
+        });
+        
+        fileTransfer.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFileTransfer(files);
+        });
+        
+        fileInput.addEventListener('change', function(e) {
+            handleFileTransfer(e.target.files);
+        });
+        
+        function handleFileTransfer(files) {
+            if (files.length > 0) {
+                sendFiles(files);
+                alert(`Sending ${files.length} file(s)...`);
+            }
+        }
+        
+        // Fullscreen handler
+        document.getElementById('fullscreenBtn').addEventListener('click', function() {
+            const video = document.getElementById('remoteVideo');
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            }
+        });
+        
+        // Simulate connection metrics
+        setInterval(function() {
+            if (document.getElementById('remoteScreen').style.display === 'block') {
+                // Simulate latency (30-150ms)
+                const latency = Math.floor(Math.random() * 120) + 30;
+                document.getElementById('latency').textContent = latency;
+                
+                // Simulate bitrate (1-8 Mbps)
+                const bitrate = (Math.random() * 7 + 1).toFixed(1);
+                document.getElementById('bitrate').textContent = bitrate;
+                
+                // Quality based on latency
+                const quality = latency < 60 ? 'Excellent' : latency < 100 ? 'Good' : 'Fair';
+                document.getElementById('quality').textContent = quality;
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
